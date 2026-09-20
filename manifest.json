@@ -1,6 +1,6 @@
 {
-  "short_name": "micro:bit Voice",
-  "name": "Voice-Controlled micro:bit Client",
+  "short_name": "micro:bit Voz",
+  "name": "micro:bit Controlada por Voz",
   "icons": [
     {
       "src": "icon-192.png",
