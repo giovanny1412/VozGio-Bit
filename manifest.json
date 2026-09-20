@@ -1,0 +1,21 @@
+{
+  "short_name": "micro:bit Voice",
+  "name": "Voice-Controlled micro:bit Client",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#f4f4f9",
+  "theme_color": "#0078d4",
+  "display": "standalone",
+  "orientation": "portrait"
+}
