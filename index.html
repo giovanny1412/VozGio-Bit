@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Controlled micro:bit</title>
+    
+    <!-- PWA Meta Tags and Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0078d4">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin-top: 50px; 
+            background: #f4f4f9; 
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 12px 24px; 
+            font-size: 16px; 
+            margin: 10px; 
+            cursor: pointer; 
+            border-radius: 5px; 
+            border: none; 
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .connect-btn { background-color: #0078d4; color: white; }
+        .connect-btn:hover { background-color: #005a9e; }
+        .listen-btn { background-color: #28a745; color: white; }
+        .listen-btn:hover { background-color: #218838; }
+        button:disabled { 
+            background-color: #cccccc !important; 
+            color: #666666;
+            cursor: not-allowed; 
+        }
+        #status { font-weight: bold; color: #666; margin-top: 20px; font-size: 16px; }
+        #transcript { font-style: italic; color: #0056b3; font-size: 22px; margin-top: 15px; min-height: 30px; }
+        .commands { margin-top: 40px; font-size: 15px; color: #555; background: #eef2f7; padding: 15px; border-radius: 5px; }
+        .tag { display: inline-block; background: #0078d4; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-left: 5px; font-weight: normal; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Voice micro:bit Controller <span class="tag">PWA Ready</span></h1>
+        <p>Control your micro:bit's LED matrix using your browser's speech recognition.</p>
+
+        <!-- Control Buttons -->
+        <button id="connectBtn" class="connect-btn">1. Connect micro:bit</button>
+        <button id="listenBtn" class="listen-btn" disabled>2. Start Listening</button>
+
+        <!-- Live Feedback Indicators -->
+        <div id="status">Status: Disconnected from micro:bit</div>
+        <div id="transcript">Spoken text will appear here...</div>
+
+        <!-- Available Commands Guide -->
+        <div class="commands">
+            <strong>Voice commands you can try:</strong><br><br>
+            <code>"Happy"</code> | <code>"Sad"</code> | <code>"Yes"</code> | <code>"No"</code> | <code>"Clear"</code>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        const textEncoder = new TextEncoder();
+
+        const connectBtn = document.getElementById('connectBtn');
+        const listenBtn = document.getElementById('listenBtn');
+        const statusDiv = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
+
+        // --- 1. Web Serial Connection Logic ---
+        connectBtn.addEventListener('click', async () => {
+            try {
+                // Request serial port connection from user
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                statusDiv.innerText = "Status: Connected to micro:bit. Ready to listen!";
+                statusDiv.style.color = "#28a745";
+                listenBtn.disabled = false;
+                connectBtn.disabled = true;
+            } catch (err) {
+                console.error("Serial connection failed:", err);
+                statusDiv.innerText = "Status: Connection Failed.";
+                statusDiv.style.color = "#dc3545";
+            }
+        });
+
+        // --- 2. Web Speech API Logic ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            alert("Your browser does not support the Web Speech API. Please switch to Google Chrome or Microsoft Edge.");
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;     // Stops capture after a single phrase is finalized
+            recognition.interimResults = false;  // Only yields fully processed phrases
+            recognition.lang = 'en-US';
+
+            listenBtn.addEventListener('click', () => {
+                try {
+                    recognition.start();
+                    statusDiv.innerText = "Status: Listening for voice commands...";
+                    listenBtn.innerText = "Listening...";
+                    listenBtn.disabled = true;
+                } catch (e) {
+                    console.error("Recognition already started", e);
+                }
+            });
+
+            recognition.onresult = async (event) => {
+                // Capture the exact recognized string text
+                const command = event.results[0][0].transcript.toLowerCase().trim();
+                transcriptDiv.innerText = `You said: "${command}"`;
+
+                // If serial stream is active, encode string and transmit down to micro:bit
+                if (port && port.writable) {
+                    const writer = port.writable.getWriter();
+                    // Append '\n' to trigger the micro:bit's uart.readline() function
+                    await writer.write(textEncoder.encode(command + '\n'));
+                    writer.releaseLock();
+                }
+            };
+
+            recognition.onspeechend = () => {
+                recognition.stop();
+                resetListenButton();
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                statusDiv.innerText = `Status: Speech error detected (${event.error})`;
+                resetListenButton();
+            };
+
+            function resetListenButton() {
+                listenBtn.disabled = false;
+                listenBtn.innerText = "2. Start Listening";
+                if (port && port.writable) {
+                    statusDiv.innerText = "Status: Ready for next command.";
+                    statusDiv.style.color = "#28a745";
+                }
+            }
+        }
+
+        // --- 3. Service Worker Registration for PWA Offline Functionality ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered successfully with scope:', reg.scope))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
