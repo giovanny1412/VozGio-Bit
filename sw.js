@@ -1,4 +1,4 @@
-const CACHE_NAME = 'microbit-voice-v3';
+const CACHE_NAME = 'micro:bit-voz-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -11,7 +11,7 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Caching shell assets');
+      console.log('Guardando recursos en caché');
       return cache.addAll(ASSETS);
     })
   );
@@ -25,7 +25,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log('Removing old cache:', key);
+            console.log('Eliminando caché antiguo:', key);
             return caches.delete(key);
           }
         })
