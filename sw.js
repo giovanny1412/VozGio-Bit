@@ -1,4 +1,4 @@
-const CACHE_NAME = 'microbit-voice-v1';
+const CACHE_NAME = 'microbit-voice-v2';
 const ASSETS = [
   './',
   './index.html',
