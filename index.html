@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wireless Voice micro:bit</title>
-    
+    <title>micro:bit por Voz</title>
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0078d4">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -23,29 +23,30 @@
         .commands { margin-top: 40px; font-size: 15px; color: #555; background: #eef2f7; padding: 15px; border-radius: 5px; }
         .tag { display: inline-block; background: #9c27b0; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-left: 5px; }
     </style>
+<base target="_blank">
 </head>
 <body>
 
     <div class="container">
-        <h1>Voice micro:bit <span class="tag">Bluetooth Wireless</span></h1>
-        <p>Talk into your Android phone to wirelessly control a micro:bit powered by a battery pack.</p>
+        <h1>micro:bit por Voz <span class="tag">Bluetooth Inalámbrico</span></h1>
+        <p>Habla a tu teléfono Android para controlar una micro:bit con pila de forma inalámbrica.</p>
 
-        <button id="connectBtn" class="connect-btn">1. Pair Bluetooth micro:bit</button>
-        <button id="listenBtn" class="listen-btn" disabled>2. Start Listening</button>
+        <button id="connectBtn" class="connect-btn">1. Emparejar micro:bit por Bluetooth</button>
+        <button id="listenBtn" class="listen-btn" disabled>2. Empezar a Escuchar</button>
 
-        <div id="status">Status: Disconnected (Bluetooth Off)</div>
-        <div id="transcript">Spoken text will appear here...</div>
+        <div id="status">Estado: Desconectado (Bluetooth apagado)</div>
+        <div id="transcript">El texto hablado aparecerá aquí...</div>
 
         <div class="commands">
-            <strong>Voice commands you can try:</strong><br><br>
-            <code>"Happy"</code> | <code>"Sad"</code> | <code>"Yes"</code> | <code>"No"</code> | <code>"Clear"</code>
+            <strong>Comandos de voz disponibles:</strong><br><br>
+            <code>"Feliz"</code> | <code>"Triste"</code> | <code>"Sí"</code> | <code>"No"</code> | <code>"Borrar"</code>
         </div>
     </div>
 
     <script>
-        // Standard Nordic UART Service UUIDs used by the micro:bit Bluetooth extension
+        // UUIDs del servicio UART nórdico usados por la extensión Bluetooth de micro:bit
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-        const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Phone sends to this
+        const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // El teléfono escribe aquí
 
         let bluetoothDevice;
         let txCharacteristic;
@@ -56,74 +57,78 @@
         const statusDiv = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
 
-        // --- 1. Web Bluetooth Connection Logic ---
+        // Convierte "Sí" -> "si", "Felíz" -> "feliz", etc. para que las comparaciones funcionen siempre
+        function normalizar(texto) {
+            return texto.toLowerCase().trim()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
+
+        // --- 1. Lógica de conexión Web Bluetooth ---
         connectBtn.addEventListener('click', async () => {
             try {
-                statusDiv.innerText = "Status: Searching for micro:bit...";
-                
-                // Request access to the micro:bit Bluetooth device
+                statusDiv.innerText = "Estado: Buscando la micro:bit...";
+
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'BBC micro:bit' }],
                     optionalServices: [UART_SERVICE_UUID]
                 });
 
-                statusDiv.innerText = "Status: Connecting to wireless GATT Server...";
+                statusDiv.innerText = "Estado: Conectando al servidor GATT...";
                 const server = await bluetoothDevice.gatt.connect();
-                
-                statusDiv.innerText = "Status: Locating UART pipeline...";
+
+                statusDiv.innerText = "Estado: Localizando servicio UART...";
                 const service = await server.getPrimaryService(UART_SERVICE_UUID);
                 txCharacteristic = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
 
-                statusDiv.innerText = "Status: Connected Wirelessly! Ready.";
+                statusDiv.innerText = "Estado: ¡Conectado! Listo para usar.";
                 statusDiv.style.color = "#28a745";
                 listenBtn.disabled = false;
                 connectBtn.disabled = true;
 
-                // Watch for unexpected disconnects
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
-                    statusDiv.innerText = "Status: Disconnected out of range.";
+                    statusDiv.innerText = "Estado: Desconectado (fuera de alcance).";
                     statusDiv.style.color = "#dc3545";
                     listenBtn.disabled = true;
                     connectBtn.disabled = false;
                 });
 
             } catch (err) {
-                console.error("Bluetooth connection setup failed:", err);
-                statusDiv.innerText = `Status: Failed (${err.message || err})`;
+                console.error("Falló la configuración de Bluetooth:", err);
+                statusDiv.innerText = `Estado: Falló (${err.message || err})`;
                 statusDiv.style.color = "#dc3545";
             }
         });
 
-        // --- 2. Web Speech API Logic ---
+        // --- 2. Lógica del API de Voz (Web Speech API) ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
+
         if (!SpeechRecognition) {
-            alert("Your mobile browser does not support the Web Speech API. Use Google Chrome on Android.");
+            alert("Tu navegador móvil no soporta el API de Voz. Usa Google Chrome en Android.");
         } else {
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
-            recognition.lang = 'en-US';
+            recognition.lang = 'es-ES';
 
             listenBtn.addEventListener('click', () => {
                 recognition.start();
-                statusDiv.innerText = "Status: Listening through phone microphone...";
-                listenBtn.innerText = "Listening...";
+                statusDiv.innerText = "Estado: Escuchando por el micrófono...";
+                listenBtn.innerText = "Escuchando...";
                 listenBtn.disabled = true;
             });
 
             recognition.onresult = async (event) => {
-                const command = event.results[0][0].transcript.toLowerCase().trim();
-                transcriptDiv.innerText = `You said: "${command}"`;
+                const comando = normalizar(event.results[0][0].transcript);
+                transcriptDiv.innerText = `Dijiste: "${comando}"`;
 
-                // If Bluetooth pipe is healthy, push encoded bytes into the micro:bit character queue
                 if (txCharacteristic) {
                     try {
-                        // MakeCode expects a '\n' (newline) string termination to trigger serial delimiters
-                        let byteData = textEncoder.encode(command + '\n');
+                        // MakeCode necesita el '\n' (salto de línea) como delimitador
+                        let byteData = textEncoder.encode(comando + '\n');
                         await txCharacteristic.writeValue(byteData);
                     } catch (writeError) {
-                        console.error("Error writing data over Bluetooth:", writeError);
+                        console.error("Error al escribir por Bluetooth:", writeError);
                     }
                 }
             };
@@ -134,25 +139,25 @@
             };
 
             recognition.onerror = (event) => {
-                console.error("Speech error:", event.error);
+                console.error("Error de voz:", event.error);
                 resetListenButton();
             };
 
             function resetListenButton() {
                 listenBtn.disabled = false;
-                listenBtn.innerText = "2. Start Listening";
+                listenBtn.innerText = "2. Empezar a Escuchar";
                 if (txCharacteristic) {
-                    statusDiv.innerText = "Status: Connected Wirelessly! Ready.";
+                    statusDiv.innerText = "Estado: ¡Conectado! Listo para usar.";
                 }
             }
         }
 
-        // --- 3. PWA Service Worker ---
+        // --- 3. Service Worker PWA ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('PWA Registered successfully!'))
-                    .catch(err => console.error('PWA Fail:', err));
+                    .then(reg => console.log('¡PWA registrado con éxito!'))
+                    .catch(err => console.error('Fallo del PWA:', err));
             });
         }
     </script>
